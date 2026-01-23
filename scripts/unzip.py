@@ -112,6 +112,28 @@ def _cleanup_language_versions(output_dir):
                 dirnames[:] = [d for d in dirnames if d == keep or not d.isdigit()]
     return removed
 
+def _promote_language_xml_files(output_dir):
+    targets = {'en', 'fr'}
+    moved = 0
+    for root, _, files in os.walk(output_dir):
+        if 'xml' not in files:
+            continue
+        lang_dir = os.path.basename(os.path.dirname(root))
+        if lang_dir.lower() not in targets:
+            continue
+        if not os.path.basename(root).isdigit():
+            continue
+        xml_path = os.path.join(root, 'xml')
+        dest_dir = os.path.dirname(os.path.dirname(root))
+        dest = os.path.join(dest_dir, f"{lang_dir.lower()}_xml")
+        os.makedirs(dest_dir, exist_ok=True)
+        if os.path.exists(dest):
+            os.remove(dest)
+        shutil.move(xml_path, dest)
+        shutil.rmtree(root, ignore_errors=True)
+        moved += 1
+    return moved
+
 def extract_zip(zip_path, output_dir):
     try:
         if os.path.exists(output_dir):
@@ -135,6 +157,7 @@ def extract_zip(zip_path, output_dir):
                 for member in members:
                     _write_member(zip_ref, member, output_map[member])
             _cleanup_language_versions(output_dir)
+            _promote_language_xml_files(output_dir)
             print(f"EXTRACTED:{file_count}")
             return file_count
 
@@ -190,6 +213,7 @@ def extract_zip(zip_path, output_dir):
             return 0
 
         _cleanup_language_versions(output_dir)
+        _promote_language_xml_files(output_dir)
         print(f"EXTRACTED:{file_count}")
         return file_count
         
