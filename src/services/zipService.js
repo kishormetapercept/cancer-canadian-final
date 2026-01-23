@@ -170,7 +170,35 @@ class ZipService {
   }
 
   _normalizeEntryName(entryName) {
-    const normalized = path.normalize(entryName);
+    const parts = entryName.split(/[\\/]+/);
+    if (parts.length === 0) {
+      return null;
+    }
+
+    const isDir = /[\\/]$/.test(entryName);
+    if (parts[parts.length - 1] === '') {
+      parts.pop();
+    }
+    if (parts.length === 0) {
+      return null;
+    }
+
+    const lastIndex = parts.length - 1;
+    const mapped = parts.map((part, idx) => {
+      if (part === '.' || part === '..') {
+        return null;
+      }
+      if (idx === lastIndex && !isDir) {
+        return part;
+      }
+      return this._transformDirectoryName(part);
+    });
+
+    if (mapped.some((part) => part === null)) {
+      return null;
+    }
+
+    const normalized = path.normalize(path.join(...mapped));
     if (path.isAbsolute(normalized)) {
       return null;
     }
@@ -178,6 +206,15 @@ class ZipService {
       return null;
     }
     return normalized;
+  }
+
+  _transformDirectoryName(name) {
+    let transformed = name;
+    if (/^\{[^}]+\}$/.test(transformed)) {
+      transformed = transformed.slice(1, -1);
+    }
+    transformed = transformed.toLowerCase();
+    return transformed.replace(/ /g, '_');
   }
 
   _validateEntry(entry, seen) {
