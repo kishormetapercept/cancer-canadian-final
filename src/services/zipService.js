@@ -156,6 +156,10 @@ class ZipService {
   }
 
   _onExtractionComplete(extractedCount, resolve) {
+    const removedDirs = this._cleanupLanguageVersions();
+    if (removedDirs > 0) {
+      Logger.cleanup(`Removed ${removedDirs} outdated version folder(s) under en/fr`);
+    }
     Logger.complete(`Zip extraction completed! ${extractedCount} files extracted to: ${this.outputDir}`);
     resolve({ extractedCount, outputDir: this.outputDir });
   }
@@ -243,6 +247,61 @@ class ZipService {
     }
 
     return null;
+  }
+
+  _cleanupLanguageVersions() {
+    const targets = new Set(['en', 'fr']);
+    let removedDirs = 0;
+
+    const walk = (dirPath) => {
+      let entries;
+      try {
+        entries = fs.readdirSync(dirPath, { withFileTypes: true });
+      } catch (err) {
+        return;
+      }
+
+      const baseName = path.basename(dirPath).toLowerCase();
+      let keepNumericName = null;
+
+      if (targets.has(baseName)) {
+        const numericDirs = entries
+          .filter((entry) => entry.isDirectory() && /^\d+$/.test(entry.name))
+          .map((entry) => ({ name: entry.name, value: Number(entry.name) }));
+
+        if (numericDirs.length > 1) {
+          numericDirs.sort((a, b) => {
+            if (a.value !== b.value) return a.value - b.value;
+            return a.name.localeCompare(b.name);
+          });
+          keepNumericName = numericDirs[numericDirs.length - 1].name;
+
+          for (const entry of numericDirs) {
+            if (entry.name === keepNumericName) continue;
+            const targetPath = path.join(dirPath, entry.name);
+            try {
+              fs.rmSync(targetPath, { recursive: true, force: true });
+              removedDirs += 1;
+            } catch (err) {
+              Logger.error(`Failed to remove folder ${targetPath}: ${err.message}`);
+            }
+          }
+        } else if (numericDirs.length === 1) {
+          keepNumericName = numericDirs[0].name;
+        }
+      }
+
+      for (const entry of entries) {
+        if (!entry.isDirectory()) continue;
+        if (targets.has(baseName) && /^\d+$/.test(entry.name) && keepNumericName && entry.name !== keepNumericName) {
+          continue;
+        }
+        walk(path.join(dirPath, entry.name));
+      }
+    };
+
+    walk(this.outputDir);
+    return removedDirs;
   }
 }
 

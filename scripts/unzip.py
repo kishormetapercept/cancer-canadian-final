@@ -4,7 +4,6 @@ import os
 import concurrent.futures
 import threading
 import shutil
-import shutil
 
 def _get_members(zip_path):
     with zipfile.ZipFile(zip_path, 'r') as zip_ref:
@@ -94,6 +93,25 @@ def _write_member(zip_ref, member_name, output_path):
     with zip_ref.open(member_name) as source, open(output_path, 'wb') as target:
         shutil.copyfileobj(source, target)
 
+def _cleanup_language_versions(output_dir):
+    targets = {'en', 'fr'}
+    removed = 0
+    for root, dirnames, _ in os.walk(output_dir):
+        base = os.path.basename(root).lower()
+        if base in targets:
+            numeric_dirs = [d for d in dirnames if d.isdigit()]
+            if len(numeric_dirs) > 1:
+                numeric_dirs_sorted = sorted(numeric_dirs, key=lambda d: (int(d), d))
+                keep = numeric_dirs_sorted[-1]
+                for name in numeric_dirs_sorted[:-1]:
+                    shutil.rmtree(os.path.join(root, name), ignore_errors=True)
+                    removed += 1
+                dirnames[:] = [d for d in dirnames if d == keep or not d.isdigit()]
+            elif len(numeric_dirs) == 1:
+                keep = numeric_dirs[0]
+                dirnames[:] = [d for d in dirnames if d == keep or not d.isdigit()]
+    return removed
+
 def extract_zip(zip_path, output_dir):
     try:
         if os.path.exists(output_dir):
@@ -116,6 +134,7 @@ def extract_zip(zip_path, output_dir):
             with zipfile.ZipFile(zip_path, 'r') as zip_ref:
                 for member in members:
                     _write_member(zip_ref, member, output_map[member])
+            _cleanup_language_versions(output_dir)
             print(f"EXTRACTED:{file_count}")
             return file_count
 
@@ -170,6 +189,7 @@ def extract_zip(zip_path, output_dir):
             print(f"ERROR:{first_error}")
             return 0
 
+        _cleanup_language_versions(output_dir)
         print(f"EXTRACTED:{file_count}")
         return file_count
         
