@@ -160,6 +160,10 @@ class ZipService {
     if (removedDirs > 0) {
       Logger.cleanup(`Removed ${removedDirs} outdated version folder(s) under en/fr`);
     }
+    const promoted = this._promoteLanguageXmlFiles();
+    if (promoted > 0) {
+      Logger.cleanup(`Promoted ${promoted} language xml item(s) to *_xml`);
+    }
     Logger.complete(`Zip extraction completed! ${extractedCount} files extracted to: ${this.outputDir}`);
     resolve({ extractedCount, outputDir: this.outputDir });
   }
@@ -302,6 +306,72 @@ class ZipService {
 
     walk(this.outputDir);
     return removedDirs;
+  }
+
+  _promoteLanguageXmlFiles() {
+    const targets = new Set(['en', 'fr']);
+    let moved = 0;
+
+    const safeRemove = (targetPath) => {
+      if (!fs.existsSync(targetPath)) {
+        return;
+      }
+      const stat = fs.statSync(targetPath);
+      if (stat.isDirectory()) {
+        fs.rmSync(targetPath, { recursive: true, force: true });
+      } else {
+        fs.unlinkSync(targetPath);
+      }
+    };
+
+    const removeIfEmpty = (dirPath) => {
+      try {
+        const remaining = fs.readdirSync(dirPath);
+        if (remaining.length === 0) {
+          fs.rmdirSync(dirPath);
+        }
+      } catch (err) {
+        return;
+      }
+    };
+
+    const walk = (dirPath) => {
+      let entries;
+      try {
+        entries = fs.readdirSync(dirPath, { withFileTypes: true });
+      } catch (err) {
+        return;
+      }
+
+      const baseName = path.basename(dirPath);
+      const parentName = path.basename(path.dirname(dirPath));
+      const isVersionDir = /^\d+$/.test(baseName);
+      const langName = parentName.toLowerCase();
+
+      if (isVersionDir && targets.has(langName)) {
+        const xmlEntry = entries.find((entry) => entry.name === 'xml');
+        if (xmlEntry) {
+          const xmlPath = path.join(dirPath, xmlEntry.name);
+          const destDir = path.dirname(path.dirname(dirPath));
+          const destPath = path.join(destDir, `${langName}_xml`);
+          FileUtil.ensureDirectory(destDir);
+          safeRemove(destPath);
+          fs.renameSync(xmlPath, destPath);
+          removeIfEmpty(dirPath);
+          removeIfEmpty(path.dirname(dirPath));
+          moved += 1;
+        }
+      }
+
+      for (const entry of entries) {
+        if (!entry.isDirectory()) continue;
+        if (entry.name === 'xml') continue;
+        walk(path.join(dirPath, entry.name));
+      }
+    };
+
+    walk(this.outputDir);
+    return moved;
   }
 }
 
