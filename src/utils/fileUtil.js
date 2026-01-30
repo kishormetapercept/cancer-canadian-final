@@ -60,7 +60,6 @@ class FileUtil {
     if (fs.existsSync(dirPath)) {
       fs.rmSync(dirPath, { recursive: true, force: true });
       fs.mkdirSync(dirPath, { recursive: true });
-      Logger.cleanup(`Cleared directory: ${dirPath}`);
     }
   }
 

@@ -15,11 +15,11 @@ from pathlib import Path
 from xml.etree import ElementTree
 
 XSLT_FILES = {
-    "first": "first.xsl",
-    "second": "second.xsl",
-    "third": "third.xsl",
-    "fourth": "fourth.xsl",
-    "final": "final.xsl",
+    "first": "Entity_Store.xsl",
+    "second": "Entity_Parser.xsl",
+    "third": "XMLtoDITA_Build.xsl",
+    "fourth": "Build_Structure.xsl",
+    "final": "Build_Validation.xsl",
 }
 
 DEFAULT_PATTERNS = ("xml", "*.xml")

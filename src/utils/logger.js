@@ -1,20 +1,9 @@
-const fs = require('fs');
-const path = require('path');
-
-const LOG_FILE = path.join(process.cwd(), 'terminallogs.txt');
-
 class Logger {
   static _write(message, isError = false) {
     if (isError) {
       console.error(message);
     } else {
       console.log(message);
-    }
-
-    try {
-      fs.appendFileSync(LOG_FILE, `${message}\n`, 'utf8');
-    } catch (err) {
-      console.error(`Logger file write failed: ${err.message}`);
     }
   }
 

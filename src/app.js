@@ -2,6 +2,7 @@ const express = require("express");
 const cors = require("cors");
 const path = require('path');
 const uploadRoutes = require('./routes/uploadRoutes');
+const imageHrefRoutes = require('./routes/imageHrefRoutes');
 const errorHandler = require('./middlewares/errorHandler');
 
 const app = express();
@@ -14,6 +15,8 @@ app.get('/test', (req, res) => {
 });
 
 app.use('/api/upload', uploadRoutes);
+app.use('/api/images', imageHrefRoutes);
+app.use('/api', imageHrefRoutes);
 
 app.use(errorHandler);
 

@@ -14,7 +14,6 @@ class XsltService {
 
     if (fs.existsSync(outputDir)) {
       fs.rmSync(outputDir, { recursive: true, force: true });
-      Logger.cleanup(`Cleared directory: ${outputDir}`);
     }
 
     const args = [
@@ -74,7 +73,6 @@ class XsltService {
         if (!line) return;
         if (line.startsWith('STEP:')) {
           lastStdoutWasError = false;
-          Logger.info(`[XSLT] ${line}`);
           return;
         }
         if (line.startsWith('ERROR:')) {
@@ -94,7 +92,6 @@ class XsltService {
         }
         if (line.startsWith('REPORT:')) {
           lastStdoutWasError = false;
-          Logger.info(`[XSLT] ${line}`);
           return;
         }
 
@@ -102,8 +99,6 @@ class XsltService {
           logErrorLine(line);
           return;
         }
-
-        Logger.info(`[XSLT] ${line}`);
       });
 
       const stderrReader = readline.createInterface({ input: child.stderr });

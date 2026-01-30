@@ -6,7 +6,7 @@ const Logger = require('../utils/logger');
 
 class UploadController {
   async uploadZip(req, res) {
-    Logger.upload(`Received zip upload request from ${req.ip}`);
+    Logger.upload('Zip upload started.');
     
     try {
       const validation = Validator.validateUploadRequest(req);
@@ -15,13 +15,9 @@ class UploadController {
         return ResponseUtil.badRequest(res, validation.error);
       }
 
-      Logger.info(`File details: ${req.file.originalname} (${req.file.size} bytes)`);
-
       const result = await zipService.extractZip(req.file.path);
-
-      Logger.info('Starting XSLT pipeline.');
       const xsltResult = await xsltService.processOutput(result.outputDir);
-      Logger.success('XSLT processing completed.');
+      Logger.complete('Zip upload completed.');
 
       return ResponseUtil.success(res, 'Zip file processed successfully', {
         extractedFiles: result.extractedCount,

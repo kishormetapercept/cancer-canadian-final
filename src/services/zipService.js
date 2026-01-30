@@ -11,7 +11,6 @@ class ZipService {
   }
 
   async extractZip(zipPath) {
-    Logger.extract(`Starting zip extraction: ${zipPath}`);
     FileUtil.ensureDirectory(this.outputDir);
     FileUtil.clearDirectory(this.outputDir);
 
@@ -22,7 +21,6 @@ class ZipService {
           return reject(err);
         }
 
-        Logger.info(`Zip file opened successfully, entries: ${zipfile.entryCount}`);
         const maxConcurrency = this._getConcurrency();
         const queue = [];
         const seen = new Set();
@@ -107,7 +105,6 @@ class ZipService {
     const outputPath = path.join(this.outputDir, normalizedName);
 
     if (/\/$/.test(entry.fileName)) {
-      Logger.folder(`Creating directory: ${entry.fileName}`);
       FileUtil.ensureDirectory(outputPath);
       return false;
     } else {
@@ -117,8 +114,6 @@ class ZipService {
   }
 
   _extractFile(entry, outputPath, zipfile, onFileExtracted, onFileDone, reject) {
-    Logger.file(`Extracting file: ${entry.fileName}`);
-
     zipfile.openReadStream(entry, (err, readStream) => {
       if (err) {
         Logger.error(`Error reading entry ${entry.fileName}: ${err.message}`);
@@ -142,8 +137,7 @@ class ZipService {
       });
 
       writeStream.on('close', () => {
-        const currentCount = onFileExtracted();
-        Logger.success(`Extracted: ${entry.fileName} (${currentCount}/${zipfile.entryCount})`);
+        onFileExtracted();
         finish();
       });
 
@@ -157,14 +151,7 @@ class ZipService {
 
   _onExtractionComplete(extractedCount, resolve) {
     const removedDirs = this._cleanupLanguageVersions();
-    if (removedDirs > 0) {
-      Logger.cleanup(`Removed ${removedDirs} outdated version folder(s) under en/fr`);
-    }
     const promoted = this._promoteLanguageXmlFiles();
-    if (promoted > 0) {
-      Logger.cleanup(`Promoted ${promoted} language xml item(s) to *_xml`);
-    }
-    Logger.complete(`Zip extraction completed! ${extractedCount} files extracted to: ${this.outputDir}`);
     resolve({ extractedCount, outputDir: this.outputDir });
   }
 
