@@ -7,16 +7,22 @@ class ImageHrefController {
     try {
       const dryRun = Boolean(req.body && req.body.dryRun);
       Logger.info(`Starting image href replacement${dryRun ? ' (dry run)' : ''}.`);
-      const result = await imageHrefService.replaceHrefs({ dryRun });
+      const imageResult = await imageHrefService.replaceHrefs({ dryRun });
       Logger.success('Image href replacement completed.');
+      Logger.info(`Starting xref href replacement${dryRun ? ' (dry run)' : ''}.`);
+      const xrefResult = await imageHrefService.replaceXrefHrefs({ dryRun });
+      Logger.success('Xref href replacement completed.');
+      Logger.info(`Starting .dita relocation${dryRun ? ' (dry run)' : ''}.`);
+      const ditaResult = await imageHrefService.relocateDitaFiles({ dryRun });
+      Logger.success('.dita relocation completed.');
       return ResponseUtil.success(
         res,
-        dryRun ? 'Image href dry run completed' : 'Image hrefs updated',
-        result
+        dryRun ? 'Href replacement dry run completed' : 'Href replacements updated',
+        { images: imageResult, xrefs: xrefResult, ditaRelocation: ditaResult }
       );
     } catch (error) {
-      Logger.error(`Image href replacement failed: ${error.message}`);
-      return ResponseUtil.serverError(res, 'Image href replacement failed', error.message);
+      Logger.error(`Href replacement failed: ${error.message}`);
+      return ResponseUtil.serverError(res, 'Href replacement failed', error.message);
     }
   }
 }
