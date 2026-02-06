@@ -11,6 +11,8 @@ XREF_HREF_RE = re.compile(
 )
 XREF_TARGET_RE = re.compile(r'^#(X_[0-9A-F]{32})$', re.IGNORECASE)
 ID_RE = re.compile(r'\bid="(X_[0-9A-F]{32})"', re.IGNORECASE)
+XML_LANG_RE = re.compile(r'\bxml:lang="(en|fr)"', re.IGNORECASE)
+FILENAME_LANG_RE = re.compile(r'[_-](en|fr)\.dita$', re.IGNORECASE)
 
 
 def _read_text(path):
@@ -29,6 +31,17 @@ def _lang_from_dita_path(path):
         return "en"
     if "fr_xml" in lower_parts:
         return "fr"
+    filename = os.path.basename(path)
+    match = FILENAME_LANG_RE.search(filename)
+    if match:
+        return match.group(1).lower()
+    return None
+
+
+def _lang_from_dita_text(text):
+    match = XML_LANG_RE.search(text)
+    if match:
+        return match.group(1).lower()
     return None
 
 
@@ -41,6 +54,11 @@ def collect_dita_files(xslt_root):
                 continue
             path = os.path.join(root, name)
             lang = _lang_from_dita_path(path)
+            if not lang:
+                try:
+                    lang = _lang_from_dita_text(_read_text(path))
+                except OSError:
+                    lang = None
             if not lang:
                 missing_lang += 1
                 continue

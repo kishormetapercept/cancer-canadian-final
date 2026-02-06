@@ -134,5 +134,6 @@
     </xsl:template>
     <xsl:template match="xref[@id][parent::p]"/>
     <xsl:template match="p[not(child::*|node())]"/>
+    <xsl:template match="@style"/>
 
 </xsl:stylesheet>

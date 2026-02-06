@@ -188,7 +188,8 @@
         </ol>
     </xsl:template>
     
-    
-    
+    <xsl:template match="br[ancestor::title]">
+        <xsl:apply-templates/>
+    </xsl:template>
 
 </xsl:stylesheet>

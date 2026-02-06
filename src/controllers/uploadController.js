@@ -1,5 +1,6 @@
 const zipService = require('../services/zipService');
 const xsltService = require('../services/xsltService');
+const blobService = require('../services/blobService');
 const Validator = require('../utils/validator');
 const ResponseUtil = require('../utils/responseUtil');
 const Logger = require('../utils/logger');
@@ -17,6 +18,7 @@ class UploadController {
 
       const result = await zipService.extractZip(req.file.path);
       const xsltResult = await xsltService.processOutput(result.outputDir);
+      const blobResult = await blobService.finalizeBlobExport();
       Logger.complete('Zip upload completed.');
 
       return ResponseUtil.success(res, 'Zip file processed successfully', {
@@ -24,6 +26,9 @@ class UploadController {
         outputDirectory: result.outputDir,
         xsltProcessedFiles: xsltResult.processedFiles,
         xsltOutputDirectory: xsltResult.outputDir,
+        blobRenamedFiles: blobResult.renamedFiles,
+        blobSourceDirectory: blobResult.sourceDir,
+        blobOutputDirectory: blobResult.destDir,
         originalFileName: req.file.originalname
       });
 

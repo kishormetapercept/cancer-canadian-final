@@ -6,6 +6,28 @@ const readline = require('readline');
 const Logger = require('../utils/logger');
 
 class ImageHrefService {
+  async copyBlobToXslt(options = {}) {
+    const { dryRun = false } = options;
+    const sourceDir = path.join(process.cwd(), 'output', 'blob');
+    const destDir = path.join(process.cwd(), 'xslt_output', 'blob');
+
+    if (!fs.existsSync(sourceDir)) {
+      throw new Error(`Blob source not found: ${sourceDir}`);
+    }
+
+    if (dryRun) {
+      return { sourceDir, destDir, dryRun: true };
+    }
+
+    if (fs.existsSync(destDir)) {
+      await fs.promises.rm(destDir, { recursive: true, force: true });
+    }
+
+    await this.copyDir(sourceDir, destDir);
+
+    return { sourceDir, destDir };
+  }
+
   replaceHrefs(options = {}) {
     const { dryRun = false } = options;
     const scriptPath = path.join(process.cwd(), 'scripts', 'update_image_hrefs.py');
@@ -169,6 +191,104 @@ class ImageHrefService {
         resolve(result);
       });
     });
+  }
+
+  replaceBlobImageHrefs(options = {}) {
+    const { dryRun = false } = options;
+    const scriptPath = path.join(process.cwd(), 'scripts', 'update_blob_image_hrefs.py');
+    const xsltRoot = path.join(process.cwd(), 'xslt_output');
+    const blobRoot = path.join(process.cwd(), 'xslt_output', 'blob', 'master');
+    const pythonBin = process.env.PYTHON_BIN || 'python';
+
+    const args = [
+      scriptPath,
+      '--xslt-root',
+      xsltRoot,
+      '--blob-root',
+      blobRoot
+    ];
+
+    if (dryRun) {
+      args.push('--dry-run');
+    }
+
+    return new Promise((resolve, reject) => {
+      const child = spawn(pythonBin, args, {
+        cwd: process.cwd(),
+        windowsHide: true
+      });
+
+      let result = null;
+      let stderrLines = 0;
+      const maxStderrLines = 25;
+
+      const stdoutReader = readline.createInterface({ input: child.stdout });
+      stdoutReader.on('line', (line) => {
+        if (!line) return;
+        if (line.startsWith('RESULT:')) {
+          try {
+            result = JSON.parse(line.replace('RESULT:', ''));
+          } catch (err) {
+            Logger.error(`[BLOB] Failed to parse result JSON: ${err.message}`);
+          }
+          return;
+        }
+        if (line.startsWith('ERROR:')) {
+          Logger.error(`[BLOB] ${line.replace('ERROR:', '')}`);
+          return;
+        }
+        Logger.info(`[BLOB] ${line}`);
+      });
+
+      const stderrReader = readline.createInterface({ input: child.stderr });
+      stderrReader.on('line', (line) => {
+        if (!line) return;
+        stderrLines += 1;
+        if (stderrLines <= maxStderrLines) {
+          Logger.error(`[BLOB] ${line}`);
+        } else if (stderrLines === maxStderrLines + 1) {
+          Logger.error('[BLOB] Additional stderr output suppressed.');
+        }
+      });
+
+      child.on('error', (err) => {
+        reject(err);
+      });
+
+      child.on('close', (code) => {
+        stdoutReader.close();
+        stderrReader.close();
+
+        if (code !== 0) {
+          return reject(new Error(`Blob href replacement failed with exit code ${code}`));
+        }
+
+        if (!result) {
+          return reject(new Error('Blob href replacement did not return a result'));
+        }
+
+        resolve(result);
+      });
+    });
+  }
+
+  async copyDir(srcDir, destDir) {
+    await fs.promises.mkdir(destDir, { recursive: true });
+    const entries = await fs.promises.readdir(srcDir, { withFileTypes: true });
+
+    for (const entry of entries) {
+      const srcPath = path.join(srcDir, entry.name);
+      const destPath = path.join(destDir, entry.name);
+
+      if (entry.isDirectory()) {
+        await this.copyDir(srcPath, destPath);
+        continue;
+      }
+
+      if (entry.isFile()) {
+        await fs.promises.copyFile(srcPath, destPath);
+      }
+    }
   }
 
   async relocateDitaFiles(options = {}) {
