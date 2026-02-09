@@ -39,7 +39,7 @@
     
     <!-- Catch the metadescription <p> under conbody -->
     <xsl:template match="conbody/p[@outputclass='metadescription']|p[@outputclass='navigationtitle']|p[@outputclass='opengraphdescription']|p[@outputclass='opengraphtitle']|
-        p[@outputclass='metatitle'][ancestor::concept/title[@outputclass='metatitle']]">
+        p[@outputclass='metatitle'][ancestor::concept/title[@outputclass='cardswithctalisttitle']]|p[@outputclass='metatitle'][ancestor::concept/title[@outputclass='cardswithctalisttitle']]">
         <!-- Do nothing here so it doesn’t appear in conbody -->
     </xsl:template>
     
@@ -123,16 +123,17 @@
     <xsl:template match="br[ancestor::li]"><xsl:apply-templates/></xsl:template>
     
     
-    <xsl:template match="p[child::*[1][self::xref[@id]]]">
+    <xsl:template match="p[child::*[1][self::xref[@name]]]">
         <p>
             <xsl:attribute name="id">
-                <xsl:value-of select="child::xref/@id"/>
+                <xsl:value-of select="child::xref/@name"/>
             </xsl:attribute>
             <xsl:apply-templates select="@*"/>
             <xsl:apply-templates/>
         </p>
     </xsl:template>
-    <xsl:template match="xref[@id][parent::p]"/>
+    
+    <xsl:template match="xref[@name][parent::p]"/>
     <xsl:template match="p[not(child::*|node())]"/>
     <xsl:template match="@style"/>
 

@@ -272,6 +272,196 @@ class ImageHrefService {
     });
   }
 
+  removeBrTags(options = {}) {
+    const { dryRun = false } = options;
+    const scriptPath = path.join(process.cwd(), 'scripts', 'remove_br_tags.py');
+    const xsltRoot = path.join(process.cwd(), 'xslt_output');
+    const pythonBin = process.env.PYTHON_BIN || 'python';
+
+    const args = [
+      scriptPath,
+      '--xslt-root',
+      xsltRoot
+    ];
+
+    if (dryRun) {
+      args.push('--dry-run');
+    }
+
+    return new Promise((resolve, reject) => {
+      const child = spawn(pythonBin, args, {
+        cwd: process.cwd(),
+        windowsHide: true
+      });
+
+      let result = null;
+      let stderrLines = 0;
+      const maxStderrLines = 25;
+
+      const stdoutReader = readline.createInterface({ input: child.stdout });
+      stdoutReader.on('line', (line) => {
+        if (!line) return;
+        if (line.startsWith('RESULT:')) {
+          try {
+            result = JSON.parse(line.replace('RESULT:', ''));
+          } catch (err) {
+            Logger.error(`[BR] Failed to parse result JSON: ${err.message}`);
+          }
+          return;
+        }
+        if (line.startsWith('ERROR:')) {
+          Logger.error(`[BR] ${line.replace('ERROR:', '')}`);
+          return;
+        }
+        Logger.info(`[BR] ${line}`);
+      });
+
+      const stderrReader = readline.createInterface({ input: child.stderr });
+      stderrReader.on('line', (line) => {
+        if (!line) return;
+        stderrLines += 1;
+        if (stderrLines <= maxStderrLines) {
+          Logger.error(`[BR] ${line}`);
+        } else if (stderrLines === maxStderrLines + 1) {
+          Logger.error('[BR] Additional stderr output suppressed.');
+        }
+      });
+
+      child.on('error', (err) => {
+        reject(err);
+      });
+
+      child.on('close', (code) => {
+        stdoutReader.close();
+        stderrReader.close();
+
+        if (code !== 0) {
+          return reject(new Error(`BR tag removal failed with exit code ${code}`));
+        }
+
+        if (!result) {
+          return reject(new Error('BR tag removal did not return a result'));
+        }
+
+        resolve(result);
+      });
+    });
+  }
+
+  async createPlaceholderDitaMaps(options = {}) {
+    const { dryRun = false } = options;
+    const xsltRoot = path.join(process.cwd(), 'xslt_output');
+    const excludedDirs = new Set(['_tmp', 'blob']);
+    const rootNames = new Set(['find_cancer_early', 'resources', 'reduce_your_risk']);
+
+    const languages = [
+      { code: 'en', lang: 'en' },
+      { code: 'fr', lang: 'fr' }
+    ];
+
+    const result = {
+      xsltRoot,
+      targetDirs: [],
+      filesPlanned: 0,
+      filesCreated: 0,
+      filesUpdated: 0,
+      filesSkipped: 0,
+      errors: []
+    };
+
+    const eol = '\r\n';
+    const buildContent = (id, lang) => [
+      '<?xml version="1.0" encoding="UTF-8"?>',
+      '<!DOCTYPE map PUBLIC "-//OASIS//DTD DITA Map//EN" "map.dtd">',
+      `<map id="${id}" xml:lang="${lang}">`,
+      '    <title></title>',
+      '</map>',
+      ''
+    ].join(eol);
+
+    const writeMaps = async (parentDir, dirName) => {
+      for (const { code, lang } of languages) {
+        const id = `${dirName}_${code}`;
+        const fileName = `${id}.ditamap`;
+        const filePath = path.join(parentDir, fileName);
+        const content = buildContent(id, lang);
+        result.filesPlanned += 1;
+
+        let existing = null;
+        try {
+          existing = await fs.promises.readFile(filePath, 'utf-8');
+        } catch (err) {
+          if (err.code !== 'ENOENT') {
+            result.errors.push({ filePath, error: err.message });
+            continue;
+          }
+        }
+
+        if (existing !== null && existing === content) {
+          result.filesSkipped += 1;
+          continue;
+        }
+
+        if (dryRun) {
+          if (existing === null) {
+            result.filesCreated += 1;
+          } else {
+            result.filesUpdated += 1;
+          }
+          continue;
+        }
+
+        try {
+          await fs.promises.writeFile(filePath, content, 'utf-8');
+          if (existing === null) {
+            result.filesCreated += 1;
+          } else {
+            result.filesUpdated += 1;
+          }
+        } catch (err) {
+          result.errors.push({ filePath, error: err.message });
+        }
+      }
+    };
+
+    const processDir = async (dirPath, limitToRootNames = false) => {
+      let entries = [];
+      try {
+        entries = await fs.promises.readdir(dirPath, { withFileTypes: true });
+      } catch (err) {
+        result.errors.push({ filePath: dirPath, error: err.message });
+        return;
+      }
+
+      const subdirs = entries
+        .filter((entry) => entry.isDirectory() && !excludedDirs.has(entry.name))
+        .filter((entry) => !limitToRootNames || rootNames.has(entry.name));
+
+      if (!subdirs.length) {
+        return;
+      }
+
+      const relativeDir = path.relative(xsltRoot, dirPath) || '.';
+      result.targetDirs.push(relativeDir);
+
+      for (const entry of subdirs) {
+        await writeMaps(dirPath, entry.name);
+      }
+
+      for (const entry of subdirs) {
+        await processDir(path.join(dirPath, entry.name), false);
+      }
+    };
+
+    try {
+      await processDir(xsltRoot, true);
+    } catch (err) {
+      throw new Error(`XSLT output directory not found: ${xsltRoot}`);
+    }
+
+    return result;
+  }
+
   async copyDir(srcDir, destDir) {
     await fs.promises.mkdir(destDir, { recursive: true });
     const entries = await fs.promises.readdir(srcDir, { withFileTypes: true });

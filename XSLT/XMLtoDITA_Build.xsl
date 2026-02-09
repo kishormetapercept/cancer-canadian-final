@@ -18,9 +18,14 @@
             outputclass="{concat('key=', replace(@key, ' ', '_'), ' sortorder=', replace(@sortorder, ' ', '_'), ' template=', replace(@template, ' ', '_'))}">
             <xsl:attribute name="rev"><xsl:value-of select="@version"/></xsl:attribute>
             <xsl:choose>
-                <xsl:when test="descendant::field[@key='metatitle']">
+                <xsl:when test="descendant::field[@key='metatitle'] and descendant::field[@key='pagetitle']/child::content">
                     <title outputclass="metatitle">
                         <xsl:copy-of select="descendant::field[@key='pagetitle']/child::content"/>
+                    </title>
+                </xsl:when>
+                <xsl:when test="descendant::field[@key='metatitle'] and not(descendant::field[@key='pagetitle']/child::content)">
+                    <title outputclass="metatitle">
+                        <xsl:copy-of select="descendant::field[@key='metatitle']/child::content"/>
                     </title>
                 </xsl:when>
                 <xsl:when test="descendant::field[@key='textblocktitle']">
@@ -84,7 +89,7 @@
                     </title>
                 </xsl:when>
                 <xsl:when test="descendant::field[@key='articlecardlisttitle']">
-                    <title outputclass="article-cardlist-title">
+                    <title outputclass="articlecardlisttitle">
                         <xsl:copy-of select="descendant::field[@key='articlecardlisttitle']/child::content"/>
                     </title>
                 </xsl:when>
@@ -285,13 +290,13 @@
     
     
     <xsl:template match="field[@key='cardswithctalisttitle']">
-        <p outputclass="cardswithctalist-title">
+        <p outputclass="cardswithctalisttitle">
             <xsl:copy-of select="./child::content"/>
         </p>
     </xsl:template>
     
     <xsl:template match="field[@key='articletitle']">
-        <p outputclass="article-title">
+        <p outputclass="articletitle">
             <xsl:copy-of select="./child::content"/>
         </p>
     </xsl:template>
@@ -410,7 +415,6 @@
         field[@key='metadescription']|
         field[@key='opengraphtitle']|
         field[@key='opengraphdescription']|
-        field[@key='metatitle']|
         field[@key='quote']|
         field[@key='recognition']|
         field[@key='expandcollapsesectiondescription']|

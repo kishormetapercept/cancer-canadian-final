@@ -21,6 +21,12 @@ class ImageHrefController {
       Logger.info(`Starting xref href replacement${dryRun ? ' (dry run)' : ''}.`);
       const xrefResult = await imageHrefService.replaceXrefHrefs({ dryRun });
       Logger.success('Xref href replacement completed.');
+      Logger.info(`Starting placeholder ditamap creation${dryRun ? ' (dry run)' : ''}.`);
+      const ditamapResult = await imageHrefService.createPlaceholderDitaMaps({ dryRun });
+      Logger.success('Placeholder ditamap creation completed.');
+      Logger.info(`Starting <br/> removal${dryRun ? ' (dry run)' : ''}.`);
+      const brResult = await imageHrefService.removeBrTags({ dryRun });
+      Logger.success('<br/> removal completed.');
       return ResponseUtil.success(
         res,
         dryRun ? 'Href replacement dry run completed' : 'Href replacements updated',
@@ -29,7 +35,9 @@ class ImageHrefController {
           blobCopy: blobCopyResult,
           blobImages: blobResult,
           xrefs: xrefResult,
-          ditaRelocation: ditaResult
+          ditaRelocation: ditaResult,
+          ditamaps: ditamapResult,
+          brTags: brResult
         }
       );
     } catch (error) {
